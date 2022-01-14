@@ -36,7 +36,7 @@
 #define HIGH_CAPTION    " mode: fast  \0   delay: 00"
 #define MIDDLE_CAPTION  " mode: middle\0   delay: 00"
 #define LOW_CAPTION     " mode: low   \0   delay: 00"
-#define LCD_DELAY       5
+#define LCD_DELAY       3
 
 // sinus configuration
 #define SIZE_LOW        512
@@ -104,7 +104,7 @@ volatile unsigned char eventController = 0;
 
 // MAIN FUNCTIONS >>>>
 // SINUS 
-void sinus (unsigned char* arr, uint16_t size);
+void sinus (unsigned char arr[LCD_BUFFER], uint16_t size);
 
 // PORT
 void port_ini (void);
@@ -113,7 +113,7 @@ void port_ini (void);
 volatile uint16_t get_sin_delay(void);
 
 // EVENT
-volatile void get_up_down_event (void);
+void get_up_down_event (void);
 volatile unsigned char get_swtch_event (void);
 
 // TIMER
@@ -122,8 +122,8 @@ void sync_timer1ms(uint16_t);
 
 // LCD
 void lcd_init();    
-void display_str (char *str);
-
+void display_str (unsigned char str[LCD_BUFFER]);
+void display_delay (void);
 
 int main (void)
 {
@@ -153,25 +153,89 @@ int main (void)
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                SINUS FUNCTIONS
+                GET/INC/DEC/RESET sinDelay
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-void sinus (unsigned char* arr, uint16_t size) 
+volatile uint16_t get_sin_delay() 
 {
-  static uint16_t index = 0;
-
-  if (index > size) index = 0;
-
-  out_port_d(arr[index]);
-
-  get_up_down_event();
-
-  sync_timer1ms(get_sin_delay());
-
-  index++;
+  return sinDelay;
 }
 
+void inc_sin_delay(void) 
+{
+  if(sinDelay < 99) {
+    sinDelay++;
+  }
+}
+
+void dec_sin_delay(void) 
+{
+  if (sinDelay > 0) {
+    sinDelay--;
+  }
+}
+
+void reset_sin_delay(void)
+{
+  sinDelay = 0;
+}
+
+/*
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                GET/INC mCount1ms 
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+*/
+
+volatile uint16_t get_mcount1ms(void) 
+{
+  return mCount1ms;
+}
+
+void inc_mcount1ms(void)
+{
+  if (mCount1ms < MS) {
+    mCount1ms++;
+  } else {
+    mCount1ms = 0;
+  }
+}
+
+/*
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                GET/SET dispData
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+*/
+
+volatile unsigned char get_disp_data_char(unsigned char index) 
+{
+  return dispData[index];
+}
+
+void set_disp_data_char(unsigned char symb, unsigned char index) 
+{
+  dispData[index] = symb;
+}
+
+/*
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                GET/SET eventController
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+*/
+
+volatile unsigned char get_event(void) 
+{
+  return eventController;
+}
+
+void set_event (unsigned char eventCode) 
+{
+  if (eventCode != 0) {
+    eventCode = eventCode | (eventController & eventCode) >> DISTANCE;
+  }
+  eventController = eventCode;
+
+}
 
 
 /*
@@ -209,37 +273,28 @@ void port_ini (void)
   DDRC  = DDRC | ((1 << RS) | (1 << RW) | (1 << E));
   DDRC  = DDRC & ~((1 << BTN_UP) | (1 << BTN_DOWN) | (1 << BTN_SWTCH));
   DDRD  = 0xFF;
-}								  
+}		
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                GET/INC/DEC/RESET sinDelay
+                SINUS FUNCTIONS
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-volatile uint16_t get_sin_delay() 
+void sinus (unsigned char arr[LCD_BUFFER], uint16_t size) 
 {
-  return sinDelay;
-}
+  static uint16_t index = 0;
 
-void inc_sin_delay(void) 
-{
-  if(sinDelay < 99) {
-    sinDelay++;
-  }
-}
+  if (index > size) index = 0;
 
-void dec_sin_delay(void) 
-{
-  if (sinDelay > 0) {
-    sinDelay--;
-  }
-}
+  out_port_d(arr[index]);
 
-void reset_sin_delay(void)
-{
-  sinDelay = 0;
-}
+  get_up_down_event();
+
+  sync_timer1ms(get_sin_delay());
+
+  index++;
+}						  
 
 
 /*
@@ -248,22 +303,8 @@ void reset_sin_delay(void)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-volatile unsigned char get_event(void) 
-{
-  return eventController;
-}
 
-void set_event (unsigned char eventCode) 
-{
-  if (eventCode != 0) {
-    eventCode = eventCode | (eventController & eventCode) >> DISTANCE;
-  }
-  eventController = eventCode;
-
-}
-
-
-volatile void get_up_down_event (void) 
+void get_up_down_event (void) 
 {
   if (get_event() & EVENT_BTN_UP) {
     while(get_event() & EVENT_BTN_UP);
@@ -311,36 +352,18 @@ void timer1_ini (void)
 
 ISR (TIMER1_COMPA_vect)
 {
-  mCount1ms++;
-  if (mCount1ms > MS) {
-    mCount1ms = 0;
-  }
+  inc_mcount1ms();
   set_event( (BTN_UP_CHCK) | (BTN_DOWN_CHCK) | (BTN_SWTCH_CHCK) );
 }
 
-volatile void sync_timer1ms (uint16_t inp_delay)
+void sync_timer1ms (uint16_t inp_delay)
 {
   if (inp_delay != 0) {
-    inp_delay = (inp_delay + mCount1ms) % MS;
-    while(inp_delay != mCount1ms);
+    inp_delay = (inp_delay + get_mcount1ms()) % MS;
+    while(inp_delay != get_mcount1ms());
   }
 }
 
-/*
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                GET/SET dispData
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-*/
-
-volatile unsigned char get_disp_data_char(unsigned char index) 
-{
-  return dispData[index];
-}
-
-void set_disp_data_char(unsigned char symb, unsigned char index) 
-{
-  dispData[index] = symb;
-}
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -415,7 +438,7 @@ void display_delay(void)
   lcd_show();
 }
 
-void display_str (char *str) 
+void display_str (unsigned char str[LCD_BUFFER]) 
 {
   unsigned char iter;
 
