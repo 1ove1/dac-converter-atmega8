@@ -9,18 +9,14 @@
 #define BTN_UP          PC3
 #define BTN_DOWN        PC4
 #define BTN_SWTCH       PC5
-#define BTN_UP_CHCK     ~PINC & (1 << BTN_UP)
-#define BTN_DOWN_CHCK   ~PINC & (1 << BTN_DOWN)
-#define BTN_SWTCH_CHCK  ~PINC & (1 << BTN_SWTCH)
 
 // some constant events codes
-#define EVENT_BTN_UP_HOLD     1
-#define EVENT_BTN_DOWN_HOLD   2
-#define EVENT_BTN_SWTCH_HOLD  4
-#define EVENT_BTN_UP          8
-#define EVENT_BTN_DOWN        16
-#define EVENT_BTN_SWTCH       32
-#define DISTANCE              3
+#define EVENT_BTN_UP    (1 << BTN_UP)
+#define EVENT_BTN_DOWN  (1 << BTN_DOWN)
+#define EVENT_BTN_SWTCH (1 << BTN_SWTCH)
+#define BTN_UP_CHCK     ~PINC & EVENT_BTN_UP
+#define BTN_DOWN_CHCK   ~PINC & EVENT_BTN_DOWN
+#define BTN_SWTCH_CHCK  ~PINC & EVENT_BTN_SWTCH
 
 // timer configuration
 #define F_CPU           1000000
@@ -230,11 +226,7 @@ volatile unsigned char get_event(void)
 
 void set_event (unsigned char eventCode) 
 {
-  if (eventCode != 0) {
-    eventCode = eventCode | (eventController & eventCode) >> DISTANCE;
-  }
   eventController = eventCode;
-
 }
 
 
@@ -306,29 +298,40 @@ void sinus (unsigned char arr[LCD_BUFFER], uint16_t size)
 
 void get_up_down_event (void) 
 {
-  if (get_event() & EVENT_BTN_UP) {
-    while(get_event() & EVENT_BTN_UP);
+  static unsigned char old_event;
+  unsigned char new_event;
+
+  new_event = get_event();
+
+  if ((new_event & EVENT_BTN_UP) && (~old_event & EVENT_BTN_UP)) {
     inc_sin_delay();
     display_delay();
   }
 
-  if (get_event() & EVENT_BTN_DOWN) {
-    while(get_event() & EVENT_BTN_DOWN);
+  if ((new_event & EVENT_BTN_DOWN) && (~old_event & EVENT_BTN_DOWN)) {
     dec_sin_delay();
     display_delay();
   }
+
+  old_event = new_event;
 }
 
 volatile unsigned char get_swtch_event (void) 
 {
-  unsigned char event = get_event() & EVENT_BTN_SWTCH;
+  static unsigned char old_event;
+  unsigned char new_event;
+  unsigned char ret = 0;
 
-  if (get_event() & EVENT_BTN_SWTCH) {
-    while(get_event() & EVENT_BTN_SWTCH);
+  new_event = get_event();
+
+  if ((new_event & EVENT_BTN_SWTCH) && (~old_event & EVENT_BTN_SWTCH)) {
     reset_sin_delay();
+    ret = 1;
   }
 
-  return event;
+  old_event = new_event;
+
+  return ret;
 }
 
 
