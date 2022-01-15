@@ -245,9 +245,9 @@ void out_port_b (unsigned char data)
 void out_port_c (unsigned char data) 
 {
   data = data & ((1 << RS) | (1 << RW) | (1 << E));
-  PORTC = PINC | data;
+  PORTC = PORTC | data;
   data = ~data ^ ((1 << RS) | (1 << RW) | (1 << E));
-  PORTC = PINC & data;
+  PORTC = PORTC & data;
 }
 
 void out_port_d (unsigned char data) 
