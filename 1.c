@@ -101,7 +101,7 @@ volatile unsigned char eventController = 0;
 
 // MAIN FUNCTIONS >>>>
 // SINUS 
-void sinus (unsigned char arr[LCD_BUFFER], uint16_t size);
+void sinus (unsigned char *arr, uint16_t size);
 
 // PORT
 void port_ini (void);
@@ -274,7 +274,7 @@ void port_ini (void)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-void sinus (unsigned char arr[LCD_BUFFER], uint16_t size) 
+void sinus (unsigned char *arr, uint16_t size) 
 {
   static uint16_t index = 0;
 
