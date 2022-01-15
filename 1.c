@@ -21,6 +21,7 @@
 // timer configuration
 #define F_CPU           1000000
 #define MS              1000
+#define CONF_TIME1      (1<<WGM12) | (1<<CS12)
 #define KOD_TIME1	      (F_CPU / 256) / MS
 #define LOW_KOD_TIME1   KOD_TIME1
 #define HIGH_KOD_TIME1  KOD_TIME1 >> 8
@@ -38,7 +39,7 @@
 #define SIZE_LOW        512
 #define SIZE_MIDDLE     256
 #define SIZE_HIGH       64
-          
+#define MAX_SIN_DELAY   5          
 
 unsigned const char sin_tab_low[SIZE_LOW] = {127, 128, 130, 131, 133, 134, 136, 
     137, 139, 141, 142, 144, 145, 147, 148, 150, 151, 153, 154, 156, 157, 159, 
@@ -160,7 +161,7 @@ volatile uint16_t get_sin_delay()
 
 void inc_sin_delay(void) 
 {
-  if(sinDelay < 99) {
+  if(sinDelay < MAX_SIN_DELAY) {
     sinDelay++;
   }
 }
@@ -344,11 +345,10 @@ volatile unsigned char get_swtch_event (void)
 
 void timer1_ini (void)
 {
-  TCCR1B  = TCCR1B | (1<<WGM12); 
+  TCCR1B  = CONF_TIME1; 
   TIMSK   = TIMSK | (1<<OCIE1A);	
   OCR1AH  = HIGH_KOD_TIME1;
   OCR1AL  = LOW_KOD_TIME1;
-  TCCR1B  = TCCR1B | (1<<CS12);
 
   sei();
 }
@@ -430,13 +430,15 @@ void lcd_show (void)
 
 void display_delay(void)
 {
-  unsigned char curr_sin_delay = get_sin_delay();
+  unsigned char curr_sin_delay;
   unsigned char iter;
+
+  curr_sin_delay = get_sin_delay();
 
   for (iter = LETTERS; iter < LCD_BUFFER; iter++) {
     set_disp_data_char((curr_sin_delay / 10) + '0', iter);
     curr_sin_delay = (curr_sin_delay % 10) * 10;        
-  }
+  } 
 
   lcd_show();
 }
