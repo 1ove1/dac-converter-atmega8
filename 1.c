@@ -406,7 +406,7 @@ void lcd_clr(void)
 void lcd_init()    //Function to prepare the LCD  and get it ready
 {
   lcd_cmd(0x38);  // for using 2 lines and 5X7 matrix of LCD
-  lcd_cmd(0x0C);  // turn display ON, cuRSor blinking
+  lcd_cmd(0x0C);  // turn display ON
   lcd_cmd(0x01);  // clear screen
   lcd_cmd(0x81);  // bring cuRSor to position 1 of line 1
 }
@@ -414,18 +414,30 @@ void lcd_init()    //Function to prepare the LCD  and get it ready
 
 void lcd_show (void) 
 {
-  unsigned char iter;
+  unsigned char iter = 0;
   unsigned char curr_char;
 
   lcd_clr();
 
-  for (iter = 0, curr_char = get_disp_data_char(iter); iter < LCD_BUFFER; iter++, curr_char = get_disp_data_char(iter)) {
+  for (iter = 0; iter < LCD_BUFFER; iter++) {
+    curr_char = get_disp_data_char(iter);
+
     if (curr_char == '\0') {
       lcd_cmd(0xC1);
     } else {
       lcd_data(curr_char);
     }
   }
+}
+
+void display_str (unsigned char str[LCD_BUFFER]) 
+{
+  unsigned char iter;
+
+  for(iter = 0; iter < LCD_BUFFER; iter++) {
+    set_disp_data_char(str[iter], iter);
+  }
+  lcd_show();
 }
 
 void display_delay(void)
@@ -440,15 +452,5 @@ void display_delay(void)
     curr_sin_delay = (curr_sin_delay % 10) * 10;        
   } 
 
-  lcd_show();
-}
-
-void display_str (unsigned char str[LCD_BUFFER]) 
-{
-  unsigned char iter;
-
-  for(iter = 0; iter < LCD_BUFFER; iter++) {
-    set_disp_data_char(str[iter], iter);
-  }
   lcd_show();
 }
