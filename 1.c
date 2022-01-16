@@ -399,8 +399,8 @@ void lcd_data(unsigned char data)  //Function to send display data to LCD
 
 void lcd_clr(void)
 {
-  lcd_cmd(0x01);  // bring cuRSor to position 1 of line 1
-  lcd_cmd(0x02);  // bring cuRSor to position 1 of line 1
+  lcd_cmd(0x01);  // clear screen
+  lcd_cmd(0x02);  // return home
 }
 
 void lcd_init()    //Function to prepare the LCD  and get it ready
