@@ -19,16 +19,16 @@
 #define BTN_SWTCH_CHCK  ~PINC & EVENT_BTN_SWTCH
 
 // timer configuration
-#define F_CPU           1000000
+#define F_CPU           1000000                     // freq of controller
 #define MS              1000
-#define CONF_TIME1      (1<<WGM12) | (1<<CS12)
+#define CONF_TIME1      (1<<WGM12) | (1<<CS12)      // mode with 256 prec/clk with comp
 #define KOD_TIME1	      (F_CPU / 256) / MS
 #define LOW_KOD_TIME1   KOD_TIME1
 #define HIGH_KOD_TIME1  KOD_TIME1 >> 8
 
-// lcd configuration
-#define NUMBERS         2
-#define LETTERS         24
+// lcd configuration (dont change that pls)
+#define NUMBERS         2                        
+#define LETTERS         24                       
 #define LCD_BUFFER      NUMBERS + LETTERS
 #define HIGH_CAPTION    " mode: fast  \0   delay: 00"
 #define MIDDLE_CAPTION  " mode: middle\0   delay: 00"
@@ -39,7 +39,7 @@
 #define SIZE_LOW        512
 #define SIZE_MIDDLE     256
 #define SIZE_HIGH       64
-#define MAX_SIN_DELAY   5          
+#define MAX_SIN_DELAY   5             // should be lower than MS (0-999)
 
 unsigned const char sin_tab_low[SIZE_LOW] = {127, 128, 130, 131, 133, 134, 136, 
     137, 139, 141, 142, 144, 145, 147, 148, 150, 151, 153, 154, 156, 157, 159, 
@@ -304,16 +304,19 @@ void get_up_down_event (void)
 
   new_event = get_event();
 
+  // if button was clicked once
   if ((new_event & EVENT_BTN_UP) && (~old_event & EVENT_BTN_UP)) {
     inc_sin_delay();
     display_delay();
   }
 
+  // same for second button
   if ((new_event & EVENT_BTN_DOWN) && (~old_event & EVENT_BTN_DOWN)) {
     dec_sin_delay();
     display_delay();
   }
 
+  // update event temporary
   old_event = new_event;
 }
 
@@ -325,11 +328,15 @@ volatile unsigned char get_swtch_event (void)
 
   new_event = get_event();
 
+  // if button was clicked once
   if ((new_event & EVENT_BTN_SWTCH) && (~old_event & EVENT_BTN_SWTCH)) {
+    // reset delay value
     reset_sin_delay();
+    // change return state
     ret = 1;
   }
 
+  // update event temporary
   old_event = new_event;
 
   return ret;
@@ -362,7 +369,9 @@ ISR (TIMER1_COMPA_vect)
 void sync_timer1ms (uint16_t inp_delay)
 {
   if (inp_delay != 0) {
+    // add current mcount1ms value to the delay
     inp_delay = (inp_delay + get_mcount1ms()) % MS;
+    // wait until delay will be equal to the mcount1ms
     while(inp_delay != get_mcount1ms());
   }
 }
@@ -377,33 +386,45 @@ void sync_timer1ms (uint16_t inp_delay)
 
 void lcd_cmd (unsigned char command)  //Function to send command instruction to LCD
 {
+  // send command
   out_port_b(command);
+  // comand mode for LCD
   out_port_c( ((0 << RS) | (0 << RW) | (1 << E)) );
   
+  // wait until lcd read this
   sync_timer1ms(LCD_DELAY);
 
+  // restore
   out_port_c( (0 << E) );
 
 }
 
 void lcd_data(unsigned char data)  //Function to send display data to LCD
 {
+  // send data
   out_port_b(data);
+  // display data mode
   out_port_c( ((1 << RS) | (0 << RW) | (1 << E)) );
 
+  // wait until lcd read this
   sync_timer1ms(LCD_DELAY);
 
+  // restore
   out_port_c( ((1 << RS) | (0 << RW) | (0 << E)) );
 
 }
 
-void lcd_clr(void)
+void lcd_home(void)
 {
-  lcd_cmd(0x01);  // clear screen
   lcd_cmd(0x02);  // return home
 }
 
-void lcd_init()    //Function to prepare the LCD  and get it ready
+void lcd_new_line(void)
+{
+  lcd_cmd(0xC1); // next line
+}
+
+void lcd_init()  
 {
   lcd_cmd(0x38);  // for using 2 lines and 5X7 matrix of LCD
   lcd_cmd(0x0C);  // turn display ON
@@ -417,29 +438,38 @@ void lcd_show (void)
   unsigned char iter = 0;
   unsigned char curr_char;
 
-  lcd_clr();
+  // bring cursor to the home
+  lcd_home();
 
   for (iter = 0; iter < LCD_BUFFER; iter++) {
+    // get actual char data
     curr_char = get_disp_data_char(iter);
 
     if (curr_char == '\0') {
-      lcd_cmd(0xC1);
+      // go to the next line
+      lcd_new_line();
     } else {
+      // print char
       lcd_data(curr_char);
     }
   }
 }
 
+// update buffer string and display this
 void display_str (unsigned char str[LCD_BUFFER]) 
 {
   unsigned char iter;
 
   for(iter = 0; iter < LCD_BUFFER; iter++) {
+    // update display buffer
     set_disp_data_char(str[iter], iter);
   }
+
+  // and run update display function
   lcd_show();
 }
 
+// update curr delay value to the buffer string
 void display_delay(void)
 {
   unsigned char curr_sin_delay;
@@ -452,5 +482,6 @@ void display_delay(void)
     curr_sin_delay = (curr_sin_delay % 10) * 10;        
   } 
 
+  // run update display function
   lcd_show();
 }
