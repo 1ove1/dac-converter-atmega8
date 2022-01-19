@@ -1,46 +1,48 @@
+#define F_CPU           1000000UL                     // частота микроконтроллера
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
 
-// port C configuration
-#define RS              PC0
-#define RW              PC1
-#define E               PC2
-#define BTN_UP          PC3
-#define BTN_DOWN        PC4
-#define BTN_SWTCH       PC5
+// конфигурация порта ввода / вывода
+#define RS              PC0   // линия RS (LCD)
+#define RW              PC1   // линия RW (LCD)
+#define E               PC2   // линия E  (LCD)
+#define BTN_UP          PC3   // кнопка "UP"
+#define BTN_DOWN        PC4   // кнопка "DOWN"
+#define BTN_SWTCH       PC5   // кнопка "SWITCH"
 
-// some constant events codes
-#define EVENT_BTN_UP    (1 << BTN_UP)
-#define EVENT_BTN_DOWN  (1 << BTN_DOWN)
-#define EVENT_BTN_SWTCH (1 << BTN_SWTCH)
-#define BTN_UP_CHCK     ~PINC & EVENT_BTN_UP
-#define BTN_DOWN_CHCK   ~PINC & EVENT_BTN_DOWN
-#define BTN_SWTCH_CHCK  ~PINC & EVENT_BTN_SWTCH
+// события нажатия на кнопки
+#define EVENT_BTN_UP    (1 << BTN_UP)             // позиция регистра кнопки "UP"
+#define EVENT_BTN_DOWN  (1 << BTN_DOWN)           // позиция регистра кнопки "DOWN"
+#define EVENT_BTN_SWTCH (1 << BTN_SWTCH)          // позиция регистра кнопки "SWITCH"
+#define BTN_UP_CHCK     ~PINC & EVENT_BTN_UP      // проверка нажатия на кнопку "UP"
+#define BTN_DOWN_CHCK   ~PINC & EVENT_BTN_DOWN    // проверка нажатия на кнопку "DOWN"
+#define BTN_SWTCH_CHCK  ~PINC & EVENT_BTN_SWTCH   // проверка нажатия на кнопку "SWITCH"
 
-// timer configuration
-#define F_CPU           1000000                     // freq of controller
-#define MS              1000
-#define CONF_TIME1      (1<<WGM12) | (1<<CS12)      // mode with 256 prec/clk with comp
-#define KOD_TIME1	      (F_CPU / 256) / MS
-#define LOW_KOD_TIME1   KOD_TIME1
-#define HIGH_KOD_TIME1  KOD_TIME1 >> 8
+// конфигурация таймера
+#define MS              1000                      // верхнее ограничение тиков
+#define CONF_TIME1      (1<<WGM12) | (1<<CS12)    // режим 256 prec/clk, сброс по совпадению
+#define KOD_TIME1	      (F_CPU / 256) / MS        // расчётное значение таймера на 1 мс
+#define LOW_KOD_TIME1   KOD_TIME1                 // нижний регистр таймера
+#define HIGH_KOD_TIME1  KOD_TIME1 >> 8            // верхний регистр таймера
 
-// lcd configuration (dont change that pls)
-#define NUMBERS         2                        
-#define LETTERS         24                       
-#define LCD_BUFFER      NUMBERS + LETTERS
-#define HIGH_CAPTION    " mode: fast  \0   delay: 00"
-#define MIDDLE_CAPTION  " mode: middle\0   delay: 00"
-#define LOW_CAPTION     " mode: low   \0   delay: 00"
-#define LCD_DELAY       3
+// конфигурация ЖКИ
+#define NUMBERS         2                             // кол-во разрядов на цифры
+#define LETTERS         24                            // кол-во разрядов на буквы
+#define LCD_BUFFER      NUMBERS + LETTERS             // общий размер буфера
+#define HIGH_CAPTION    " mode: fast  \0   delay: 00" // шаблон для "быстрого" режима
+#define MIDDLE_CAPTION  " mode: middle\0   delay: 00" // шаблон для "обычного" режима
+#define LOW_CAPTION     " mode: low   \0   delay: 00" // шаблон для "медленного" режима
+#define LCD_DELAY       3                             // задержка чтения ЖКИ
 
-// sinus configuration
-#define SIZE_LOW        512
-#define SIZE_MIDDLE     256
-#define SIZE_HIGH       64
-#define MAX_SIN_DELAY   5             // should be lower than MS (0-999)
+// конфигурация сигнала (синус)
+#define SIZE_LOW        512           // размер массива "медленного" режима
+#define SIZE_MIDDLE     256           // размер массива "обычного" режима
+#define SIZE_HIGH       64            // размер массива "быстрого" режима
+#define MAX_SIN_DELAY   5             // максимальное значение 
+                                      // програмной задержки сигнала
 
+// массив значений для синуса ("медленный" режим)
 unsigned const char sin_tab_low[SIZE_LOW] = {127, 128, 130, 131, 133, 134, 136, 
     137, 139, 141, 142, 144, 145, 147, 148, 150, 151, 153, 154, 156, 157, 159, 
     160, 162, 163, 165, 166, 168, 169, 171, 172, 174, 175, 177, 178, 179, 181, 
@@ -73,6 +75,7 @@ unsigned const char sin_tab_low[SIZE_LOW] = {127, 128, 130, 131, 133, 134, 136,
     93, 94, 96, 97, 99, 100, 102, 103, 105, 106, 108, 109, 111, 112, 114, 116, 117, 
     119, 120, 122, 123, 125, 127};
 
+// массив значений для синуса ("обычный" режим)
 unsigned const char sin_tab_middle[SIZE_MIDDLE] = {127, 130, 133, 136, 139, 142, 145, 
     148, 151, 154, 157, 161, 164, 166, 169, 172, 175, 178, 181, 184, 187, 189, 192, 195, 
     197, 200, 202, 205, 207, 210, 212, 214, 217, 219, 221, 223, 225, 227, 229, 231, 232, 
@@ -88,58 +91,63 @@ unsigned const char sin_tab_middle[SIZE_MIDDLE] = {127, 130, 133, 136, 139, 142,
     21, 22, 24, 26, 28, 30, 32, 34, 36, 39, 41, 43, 46, 48, 51, 53, 56, 58, 61, 64, 66, 
     69, 72, 75, 78, 81, 84, 87, 89, 92, 96, 99, 102, 105, 108, 111, 114, 117, 120, 123, 127};
 
+// массив значений для синуса ("быстрый" режим)
 unsigned const char sin_tab_high[SIZE_HIGH] = {127, 139, 151, 163, 175, 186, 197, 207, 216, 225, 
     232, 239, 244, 248, 251, 253, 254, 253, 251, 248, 244, 239, 232, 225, 216, 207, 197, 186, 175, 
     163, 151, 139, 126, 114, 102, 90, 78, 67, 56, 46, 37, 28, 21, 14, 9, 5, 2, 0, 0, 0, 2, 5, 9, 14, 
     21, 28, 37, 46, 56, 67, 78,  90,  102, 114};
 
-// VOLATILE FIELDS
-volatile uint16_t sinDelay = 0;
-volatile uint16_t mCount1ms = 0;
-volatile unsigned char dispData[LCD_BUFFER] = HIGH_CAPTION;
-volatile unsigned char eventController = 0;
+// глобальные переменные (поля)
+volatile uint16_t sinDelay = 0;                             // программаня задержка синуса
+volatile uint16_t mCount1ms = 0;                            // счётчик числа переполнений таймера
+volatile unsigned char dispData[LCD_BUFFER] = HIGH_CAPTION; // буфер вывода
+volatile unsigned char eventController = 0;                 // контроллера событий
 
-// MAIN FUNCTIONS >>>>
-// SINUS 
+// основные функциии и процедуры (используемые в main)
+// обработка и вывод синуса
 void sinus (unsigned char *arr, uint16_t size);
 
-// PORT
+// инициализация портов
 void port_ini (void);
 
-// sinDelay
+// получение программной задержки сигнала (синус)
 volatile uint16_t get_sin_delay(void);
 
-// EVENT
-void get_up_down_event (void);
-volatile unsigned char get_swtch_event (void);
+// система событий
+void get_up_down_event (void);                  // проверка нажатия на кнопки "UP" и "DOWN"
+volatile unsigned char get_swtch_event (void);  // прове нажатия на кнопку "SWITCH"
 
-// TIMER
-void timer1_ini (void);
-void sync_timer1ms(uint16_t);
+// таймеры
+void timer1_ini (void);       // инициализация таймера T1 (16 бит)
+void sync_timer1ms(uint16_t); // синхронный таймер
 
-// LCD
-void lcd_init();    
-void display_str (unsigned char str[LCD_BUFFER]);
-void display_delay (void);
+// ЖКИ
+void lcd_init();                                  // инициализация ЖКИ
+void display_str (unsigned char str[LCD_BUFFER]); // вывод строки
+void display_delay (void);                        // обновление значения задержки на экране
 
+// главная процедура
 int main (void)
 {
+  // первичная инициализация портов, таймера и ЖКИ
   port_ini();
   timer1_ini();
   lcd_init();
 
   while (1) {
-
+    // "быстрый" режим
     display_str(HIGH_CAPTION);
     while (!get_swtch_event()) {
       sinus(sin_tab_high, SIZE_HIGH);
     }
     
+    // "обычный" режим
     display_str(MIDDLE_CAPTION);
     while (!get_swtch_event()) {
       sinus(sin_tab_middle, SIZE_MIDDLE);
     }
 
+    // "медленный" режим
     display_str(LOW_CAPTION);
     while (!get_swtch_event()) {
       sinus(sin_tab_low, SIZE_LOW);
@@ -154,11 +162,19 @@ int main (void)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-volatile uint16_t get_sin_delay() 
+/**
+ * @brief возвращает текущее значение программной задержки сигнала
+ * 
+ * @return значение программной задержки (sinDelay)
+ */
+volatile uint16_t get_sin_delay()  
 {
   return sinDelay;
 }
 
+/**
+ * @brief инкремент программной задержки сигнала (<MAX_SIN_DELAY)
+ */
 void inc_sin_delay(void) 
 {
   if(sinDelay < MAX_SIN_DELAY) {
@@ -166,6 +182,9 @@ void inc_sin_delay(void)
   }
 }
 
+/**
+ * @brief декремент программной задержки сигнала (>0)
+ */
 void dec_sin_delay(void) 
 {
   if (sinDelay > 0) {
@@ -173,6 +192,9 @@ void dec_sin_delay(void)
   }
 }
 
+/**
+ * @brief сброс программной задержки сигнала
+ */
 void reset_sin_delay(void)
 {
   sinDelay = 0;
@@ -184,11 +206,19 @@ void reset_sin_delay(void)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+/**
+ * @brief возвращает текущее значение счётчика прерываний
+ * 
+ * @return текущее значение счётчика прерываний
+ */
 volatile uint16_t get_mcount1ms(void) 
 {
   return mCount1ms;
 }
 
+/**
+ * @brief инкремент счётчика прерываний (<MS)
+ */
 void inc_mcount1ms(void)
 {
   if (mCount1ms < MS) {
@@ -204,11 +234,23 @@ void inc_mcount1ms(void)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+/**
+ * @brief возвращает значение символа из буфера дисплея по индексу
+ * 
+ * @param index - позиция символа
+ * @return символ из буфера на позиции index
+ */
 volatile unsigned char get_disp_data_char(unsigned char index) 
 {
   return dispData[index];
 }
 
+/**
+ * @brief устанавливает значение символа в буфер дисплея по индексу
+ * 
+ * @param symb - символ, который требуется занести в буфер
+ * @param index - позиция символа
+ */
 void set_disp_data_char(unsigned char symb, unsigned char index) 
 {
   dispData[index] = symb;
@@ -220,11 +262,21 @@ void set_disp_data_char(unsigned char symb, unsigned char index)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+/**
+ * @brief возвращает значение контроллера событий
+ * 
+ * @return контроллер событий
+ */
 volatile unsigned char get_event(void) 
 {
   return eventController;
 }
 
+/**
+ * @brief задаёт события в контроллер событий
+ * 
+ * @param eventCode 
+ */
 void set_event (unsigned char eventCode) 
 {
   eventController = eventCode;
@@ -237,19 +289,38 @@ void set_event (unsigned char eventCode)
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+/**
+ * @brief вывод значения в порт B
+ * 
+ * @param data - значения для вывода
+ */
 void out_port_b (unsigned char data) 
 {
   PORTB = data;
 }
 
+/**
+ * @brief вывод значения в порт C
+ * 
+ * @param data - значение для вывода
+ */
 void out_port_c (unsigned char data) 
 {
+  // маскируем вывод (чтобы не затронуть биты для ввода)
   data = data & ((1 << RS) | (1 << RW) | (1 << E));
+  // заносим значения в порт C
   PORTC = PORTC | data;
+  // снова маскируем вывод с целью выделить нулевые значения
   data = ~data ^ ((1 << RS) | (1 << RW) | (1 << E));
+  // обнуляем (если есть) необходимые биты
   PORTC = PORTC & data;
 }
 
+/**
+ * @brief вывод значения в порт D
+ * 
+ * @param data - значения для вывода
+ */
 void out_port_d (unsigned char data) 
 {
   PORTD = data;
@@ -257,121 +328,191 @@ void out_port_d (unsigned char data)
 
 void port_ini (void)
 {
-  out_port_b(0x00);
+  // создаём положительное напряжение на портах ввода
   PORTC   = 0xff;
+  // обнуляем порты
+  out_port_b(0x00);
   out_port_c(0x00);
   out_port_d(0x00);
 
+  // порт B на вывод
   DDRB  = 0xFF;
+  // ножки RS, RW, E порта C на вывод
   DDRC  = DDRC | ((1 << RS) | (1 << RW) | (1 << E));
+  // ножки BTN_UP, BTN_DOWN, BTN_SWTCH порта C на ввод
   DDRC  = DDRC & ~((1 << BTN_UP) | (1 << BTN_DOWN) | (1 << BTN_SWTCH));
+  // порт D на вывод
   DDRD  = 0xFF;
 }		
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                SINUS FUNCTIONS
+                БЛОК СИГНАЛА
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+/**
+ * @brief вывод и обработка сигнала синуса
+ * 
+ * @param arr - массив, содержащий данные для вывода
+ * @param size - размер массива
+ */
 void sinus (unsigned char *arr, uint16_t size) 
 {
+  // статическая переменная индекса для итерации
   static uint16_t index = 0;
 
+  // сброс итерации при достижении последнего эл. массива
   if (index > size) index = 0;
 
+  // вывод значения сигнала на порт D
   out_port_d(arr[index]);
 
+  // проверка на нажатие кнопок "UP" и "DOWN"
   get_up_down_event();
 
+  // реализуем программную задержку для сигнала (растягиваем его)
   sync_timer1ms(get_sin_delay());
 
+  // переходим к следующему элементу массива
   index++;
 }						  
 
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                EVENT FUNCTIONS
+                СОБЫТИЯ
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-
+/**
+ * @brief проверка нажатия на кнопки "UP" и "DOWN"
+ *  В зависимости от нажатой кнопки, увеличивает или уменьшает 
+ *  значение задержки сигнала и выводит на ЖКИ
+ * 
+ *  Функция срабатывает только в момент нажатия кнопки, для чего
+ *  используется сравнение прошлого состояния кнопки и текущего
+ *  с целью выявить однократное нажатие 
+ * 
+ *  (CЕЙЧАС КНОПКА НАЖАТА?) && !(В ПРОШЛЫЙ РАЗ КНОПКА БЫЛА НАЖАТА?)
+ *  т.е. пройдёт лишь то условие, при котором осуществилось изменение
+ *  состояния кнопки с 0 на 1
+ */
 void get_up_down_event (void) 
 {
+  // старое событие (статическое)
   static unsigned char old_event;
+  // новое событие
   unsigned char new_event;
 
+  // получем текущие события
   new_event = get_event();
 
-  // if button was clicked once
+  // проверяем, была ли нажата кнопка "UP"
   if ((new_event & EVENT_BTN_UP) && (~old_event & EVENT_BTN_UP)) {
+    // если да - увеличиваем задержку и выводим её на экран
     inc_sin_delay();
     display_delay();
   }
 
-  // same for second button
+  // проверяем, была ли нажата кнопка "DOWN"
   if ((new_event & EVENT_BTN_DOWN) && (~old_event & EVENT_BTN_DOWN)) {
+    // если да - уменьшаем задержку и выводим её на экран
     dec_sin_delay();
     display_delay();
   }
 
-  // update event temporary
+  // сохраняем текущее событие
   old_event = new_event;
 }
 
+/**
+ * @brief проверка на нажатие кнопки "SWITCH"
+ *  Возвращаем 1, если ктопка "SWITCH" была нажата, иначе - 0.
+ *  
+ *  Функция срабатывает только в момент нажатия кнопки, для чего
+ *  используется сравнение прошлого состояния кнопки и текущего
+ *  с целью выявить однократное нажатие 
+ * 
+ *  (CЕЙЧАС КНОПКА НАЖАТА?) && !(В ПРОШЛЫЙ РАЗ КНОПКА БЫЛА НАЖАТА?)
+ *  т.е. пройдёт лишь то условие, при котором осуществилось изменение
+ *  состояния кнопки с 0 на 1
+ * 
+ * @return результат проверки на нажатие
+ */
+
 volatile unsigned char get_swtch_event (void) 
 {
+  // старое событие (статическое)
   static unsigned char old_event;
+  // новое событие 
   unsigned char new_event;
+  // возвращаемое значение
   unsigned char ret = 0;
 
+  // получаем текущие события
   new_event = get_event();
 
-  // if button was clicked once
+  // проверяем, была ли нажата кнопка "SWITCH"
   if ((new_event & EVENT_BTN_SWTCH) && (~old_event & EVENT_BTN_SWTCH)) {
-    // reset delay value
+    // если да - сбрасываем задержку
     reset_sin_delay();
-    // change return state
+    // и уст. возвр. знач. в 1-у
     ret = 1;
   }
 
-  // update event temporary
+  // сохраняем текущее событие
   old_event = new_event;
 
+  // возвращаем результат
   return ret;
 }
 
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                TIMER FUNCTIONS
+                ФУНКЦИИ ТАЙМЕРА
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-
+/**
+ * @brief инициализирует таймер Т1
+ */
 void timer1_ini (void)
 {
   TCCR1B  = CONF_TIME1; 
-  TIMSK   = TIMSK | (1<<OCIE1A);	
+  TIMSK   = TIMSK | (1<<OCIE1A);	  // режим прерывания по вектору COMPA_vect
   OCR1AH  = HIGH_KOD_TIME1;
   OCR1AL  = LOW_KOD_TIME1;
 
-  sei();
+  sei();                            // разрешаем прерывания
 }
 
+/**
+ * @brief процедура прерывания
+ *  Увеличивает счётчик прерываний и "слушает" ножки ввода (кнопки)
+ */
 ISR (TIMER1_COMPA_vect)
 {
+  // инкремент счётчика
   inc_mcount1ms();
+  // "слушаем" ножки ввода (кнопик)
   set_event( (BTN_UP_CHCK) | (BTN_DOWN_CHCK) | (BTN_SWTCH_CHCK) );
 }
 
+/**
+ * @brief синхронный таймер на 1ms (<MS)
+ *  Получает на вход задержку, приращивает к текущему значению счётчика прерываний
+ *  и ждёт, пока они не будут равны (по модулю MS)
+ * 
+ * @param inp_delay - значение задержки в мс
+ */
 void sync_timer1ms (uint16_t inp_delay)
 {
   if (inp_delay != 0) {
-    // add current mcount1ms value to the delay
+    // осуществляем приращение задержки и счётчика тиков по модулю MS
     inp_delay = (inp_delay + get_mcount1ms()) % MS;
-    // wait until delay will be equal to the mcount1ms
+    // ждём, пока счётчик тиков и задержка сравняться
     while(inp_delay != get_mcount1ms());
   }
 }
@@ -379,109 +520,151 @@ void sync_timer1ms (uint16_t inp_delay)
 
 /*
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                LCD DISPLAY FUNCTIONS
+                ФУНКЦИИ РАБОТЫ С ЖКИ
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
-
+/**
+ * @brief вывод команды на вход ЖКИ
+ * 
+ * @param command - код команды
+ */
 void lcd_cmd (unsigned char command)  //Function to send command instruction to LCD
 {
-  // send command
+  // выводим команду на порт B
   out_port_b(command);
-  // comand mode for LCD
+  // включаем режим чтения команд
   out_port_c( ((0 << RS) | (0 << RW) | (1 << E)) );
   
-  // wait until lcd read this
+  // ждём пока прочитаем
   sync_timer1ms(LCD_DELAY);
 
-  // restore
-  out_port_c( (0 << E) );
+  // выключаем режим чтения команд
+  out_port_c( (0 << RS) | (0 << RW) | (0 << E));
 
 }
 
+/**
+ * @brief вывод данных на ввод ЖКИ
+ * 
+ * @param data - код символа
+ */
 void lcd_data(unsigned char data)  //Function to send display data to LCD
 {
-  // send data
+  // вывод символа на порт B
   out_port_b(data);
-  // display data mode
+  // включаем режим чтения данных
   out_port_c( ((1 << RS) | (0 << RW) | (1 << E)) );
 
-  // wait until lcd read this
+  // ждём пока прочитает
   sync_timer1ms(LCD_DELAY);
 
-  // restore
+  // выключаем режим чтения данных
   out_port_c( ((1 << RS) | (0 << RW) | (0 << E)) );
 
 }
 
+/**
+ * @brief возвращает курсор на начало
+ */
 void lcd_home(void)
 {
   lcd_cmd(0x02);  // return home
 }
 
+/**
+ * @brief переход на следующую строку
+ */
 void lcd_new_line(void)
 {
   lcd_cmd(0xC1); // next line
 }
 
+/**
+ * @brief инициализаия ЖКИ
+ * 
+ */
 void lcd_init()  
 {
-  lcd_cmd(0x38);  // for using 2 lines and 5X7 matrix of LCD
-  lcd_cmd(0x0C);  // turn display ON
-  lcd_cmd(0x01);  // clear screen
-  lcd_cmd(0x81);  // bring cuRSor to position 1 of line 1
+  lcd_cmd(0x38);  // две линии, 5х7
+  lcd_cmd(0x0C);  // включаем дисплей
+  lcd_cmd(0x01);  // очищаем
+  lcd_cmd(0x81);  // переводим курсор на позицию 1 линии 1
 }
 
-
+/**
+ * @brief вывод данных из буфера на ЖКИ
+ */
 void lcd_show (void) 
 {
+  // текущая итерация
   unsigned char iter = 0;
+  // текущий символ
   unsigned char curr_char;
 
-  // bring cursor to the home
+  // переводим курсор на начало
   lcd_home();
 
+  // цикл для каждого символа в буфере
   for (iter = 0; iter < LCD_BUFFER; iter++) {
-    // get actual char data
+    // получаем текущий символ из буфера
     curr_char = get_disp_data_char(iter);
 
+    // если встречаем символ конца строки - переходим на новую строку
     if (curr_char == '\0') {
-      // go to the next line
+      // переходим на новую строку
       lcd_new_line();
     } else {
-      // print char
+      // иначе выводим символ
       lcd_data(curr_char);
     }
   }
 }
 
-// update buffer string and display this
+/**
+ * @brief вывод строки на экран жки
+ *  Сначала считывается новая строка, потом она заноситься в буфер
+ *  после чего осуществляется процедура отображения буфера на ЖКИ
+ * 
+ * @param str - строка символов с длиной LCD_BUFFER
+ */
 void display_str (unsigned char str[LCD_BUFFER]) 
 {
+  // текущая итерация
   unsigned char iter;
 
+  // цикл для каждого символа из буфера
   for(iter = 0; iter < LCD_BUFFER; iter++) {
-    // update display buffer
+    // обновляем значения буфера значением из ввода
     set_disp_data_char(str[iter], iter);
   }
 
-  // and run update display function
+  // отображаем буфер
   lcd_show();
 }
 
-// update curr delay value to the buffer string
+/**
+ * @brief обновление значения программной задержки сигнала
+ *  В отличии от display_str не требует аргументов
+ */
 void display_delay(void)
 {
+  // текущее значение программной задержки сигнала
   unsigned char curr_sin_delay;
+  // текущая итерация
   unsigned char iter;
 
+  // получаем значение программной задержки
   curr_sin_delay = get_sin_delay();
 
+  // цикл для численного разряда буфера
   for (iter = LETTERS; iter < LCD_BUFFER; iter++) {
+    // заносим старшие разряды числа задержки
     set_disp_data_char((curr_sin_delay / 10) + '0', iter);
+    // убираем старшие разряды
     curr_sin_delay = (curr_sin_delay % 10) * 10;        
   } 
 
-  // run update display function
+  // запускаем процедуру отображения
   lcd_show();
 }
